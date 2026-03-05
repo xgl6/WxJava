@@ -576,6 +576,21 @@ public interface WxCpApiPathConsts {
     String WEDOC_DOC_SHARE = "/cgi-bin/wedoc/doc_share";
 
     /**
+     * The constant WEDOC_SPREADSHEET_BATCH_UPDATE.
+     */
+    String WEDOC_SPREADSHEET_BATCH_UPDATE = "/cgi-bin/wedoc/spreadsheet/batch_update";
+
+    /**
+     * The constant WEDOC_SPREADSHEET_GET_SHEET_PROPERTIES.
+     */
+    String WEDOC_SPREADSHEET_GET_SHEET_PROPERTIES = "/cgi-bin/wedoc/spreadsheet/get_sheet_properties";
+
+    /**
+     * The constant WEDOC_SPREADSHEET_GET_SHEET_RANGE_DATA.
+     */
+    String WEDOC_SPREADSHEET_GET_SHEET_RANGE_DATA = "/cgi-bin/wedoc/spreadsheet/get_sheet_range_data";
+
+    /**
      * 邮件
      * https://developer.work.weixin.qq.com/document/path/95486
      */
@@ -905,6 +920,15 @@ public interface WxCpApiPathConsts {
      */
     String GET_CUSTOMIZED_AUTH_URL = "/cgi-bin/service/get_customized_auth_url";
 
+    /**
+     * The constant GET_TEMPLATE_LIST.
+     */
+    String GET_TEMPLATE_LIST = "/cgi-bin/service/get_template_list";
+
+    /**
+     * The constant GET_CUSTOMIZED_APP_DETAIL.
+     */
+    String GET_CUSTOMIZED_APP_DETAIL = "/cgi-bin/service/get_customized_app_detail";
 
     /**
      * The constant CONTACT_SEARCH.
@@ -1676,5 +1700,26 @@ public interface WxCpApiPathConsts {
      * 官方文档: https://developer.work.weixin.qq.com/document/path/100719
      */
     String SEND_MESSAGE = "/cgi-bin/intelligent_robot/send_message";
+  }
+
+  /**
+   * 人事助手相关接口.
+   * 官方文档：https://developer.work.weixin.qq.com/document/path/99132
+   */
+  interface Hr {
+    /**
+     * 获取员工档案字段信息.
+     */
+    String GET_FIELD_INFO = "/cgi-bin/hr/get_fields";
+
+    /**
+     * 获取员工档案数据.
+     */
+    String GET_EMPLOYEE_FIELD_INFO = "/cgi-bin/hr/get_staff_info";
+
+    /**
+     * 更新员工档案数据.
+     */
+    String UPDATE_EMPLOYEE_FIELD_INFO = "/cgi-bin/hr/update_staff_info";
   }
 }

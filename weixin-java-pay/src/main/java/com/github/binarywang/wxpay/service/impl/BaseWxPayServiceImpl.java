@@ -155,6 +155,47 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
+  public WxPayConfig getConfig(String mchId, String appId) {
+    if (StringUtils.isBlank(mchId)) {
+      log.warn("商户号mchId不能为空");
+      return null;
+    }
+    if (StringUtils.isBlank(appId)) {
+      log.warn("应用ID appId不能为空");
+      return null;
+    }
+    String configKey = this.getConfigKey(mchId, appId);
+    return this.configMap.get(configKey);
+  }
+
+  @Override
+  public WxPayConfig getConfig(String mchId) {
+    if (StringUtils.isBlank(mchId)) {
+      log.warn("商户号mchId不能为空");
+      return null;
+    }
+
+    // 先尝试精确匹配（针对只有mchId没有appId的配置）
+    if (this.configMap.containsKey(mchId)) {
+      return this.configMap.get(mchId);
+    }
+
+    // 尝试前缀匹配（查找以 mchId_ 开头的配置）
+    String prefix = mchId + "_";
+    return this.configMap.entrySet().stream()
+      .filter(entry -> entry.getKey().startsWith(prefix))
+      .findFirst()
+      .map(entry -> {
+        log.debug("根据mchId=【{}】找到配置key=【{}】", mchId, entry.getKey());
+        return entry.getValue();
+      })
+      .orElseGet(() -> {
+        log.warn("无法找到对应mchId=【{}】的商户号配置信息", mchId);
+        return null;
+      });
+  }
+
+  @Override
   public void setConfig(WxPayConfig config) {
     final String defaultKey = this.getConfigKey(config.getMchId(), config.getAppId());
     this.setMultiConfig(ImmutableMap.of(defaultKey, config), defaultKey);
@@ -167,6 +208,18 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
         this.setConfig(wxPayConfig);
       } else {
         String configKey = this.getConfigKey(mchId, appId);
+        WxPayConfigHolder.set(configKey);
+        this.configMap.put(configKey, wxPayConfig);
+      }
+    }
+  }
+
+  @Override
+  public void addConfig(String configKey, WxPayConfig wxPayConfig) {
+    synchronized (this) {
+      if (this.configMap == null) {
+        this.setMultiConfig(ImmutableMap.of(configKey, wxPayConfig), configKey);
+      } else {
         WxPayConfigHolder.set(configKey);
         this.configMap.put(configKey, wxPayConfig);
       }
@@ -191,6 +244,22 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
+  public void removeConfig(String configKey) {
+    synchronized (this) {
+      this.configMap.remove(configKey);
+      if (this.configMap.isEmpty()) {
+        log.warn("已删除最后一个商户号配置：configKey[{}]，须立即使用setConfig或setMultiConfig添加配置", configKey);
+        return;
+      }
+      if (WxPayConfigHolder.get().equals(configKey)) {
+        final String nextConfigKey = this.configMap.keySet().iterator().next();
+        WxPayConfigHolder.set(nextConfigKey);
+        log.warn("已删除默认商户号配置，商户号【{}】被设为默认配置", nextConfigKey);
+      }
+    }
+  }
+
+  @Override
   public void setMultiConfig(Map<String, WxPayConfig> wxPayConfigs) {
     this.setMultiConfig(wxPayConfigs, wxPayConfigs.keySet().iterator().next());
   }
@@ -203,6 +272,10 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   @Override
   public boolean switchover(String mchId, String appId) {
+    // 如果appId为空，则降级为仅使用mchId进行切换
+    if (StringUtils.isBlank(appId)) {
+      return this.switchover(mchId);
+    }
     String configKey = this.getConfigKey(mchId, appId);
     if (this.configMap.containsKey(configKey)) {
       WxPayConfigHolder.set(configKey);
@@ -213,13 +286,71 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
+  public boolean switchover(String mchId) {
+    // 参数校验
+    if (StringUtils.isBlank(mchId)) {
+      log.error("商户号mchId不能为空");
+      return false;
+    }
+
+    // 先尝试精确匹配（针对只有mchId没有appId的配置）
+    if (this.configMap.containsKey(mchId)) {
+      WxPayConfigHolder.set(mchId);
+      return true;
+    }
+
+    // 尝试前缀匹配（查找以 mchId_ 开头的配置）
+    String prefix = mchId + "_";
+    for (String key : this.configMap.keySet()) {
+      if (key.startsWith(prefix)) {
+        WxPayConfigHolder.set(key);
+        log.debug("根据mchId=【{}】找到配置key=【{}】", mchId, key);
+        return true;
+      }
+    }
+
+    log.error("无法找到对应mchId=【{}】的商户号配置信息，请核实！", mchId);
+    return false;
+  }
+
+  @Override
   public WxPayService switchoverTo(String mchId, String appId) {
+    // 如果appId为空，则降级为仅使用mchId进行切换
+    if (StringUtils.isBlank(appId)) {
+      return this.switchoverTo(mchId);
+    }
     String configKey = this.getConfigKey(mchId, appId);
     if (this.configMap.containsKey(configKey)) {
       WxPayConfigHolder.set(configKey);
       return this;
     }
     throw new WxRuntimeException(String.format("无法找到对应mchId=【%s】,appId=【%s】的商户号配置信息，请核实！", mchId, appId));
+  }
+
+  @Override
+  public WxPayService switchoverTo(String mchId) {
+    // 参数校验
+    if (StringUtils.isBlank(mchId)) {
+      throw new WxRuntimeException("商户号mchId不能为空");
+    }
+
+    // 先尝试精确匹配（针对只有mchId没有appId的配置）
+    if (this.configMap.containsKey(mchId)) {
+      WxPayConfigHolder.set(mchId);
+      return this;
+    }
+
+    // 尝试前缀匹配（查找以 mchId_ 开头的配置）
+    String prefix = mchId + "_";
+    for (String key : this.configMap.keySet()) {
+      if (key.startsWith(prefix)) {
+        WxPayConfigHolder.set(key);
+        log.debug("根据mchId=【{}】找到配置key=【{}】", mchId, key);
+        return this;
+      }
+    }
+
+    throw new WxRuntimeException(String.format("无法找到对应mchId=【%s】的商户号配置信息，请核实！", mchId));
   }
 
   public String getConfigKey(String mchId, String appId) {
@@ -263,6 +394,9 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   @Override
   public WxPayRefundV3Result refundV3(WxPayRefundV3Request request) throws WxPayException {
+    if (StringUtils.isBlank(request.getNotifyUrl())) {
+      request.setNotifyUrl(this.getConfig().getRefundNotifyUrl());
+    }
     String url = String.format("%s/v3/refund/domestic/refunds", this.getPayBaseUrl());
     String response = this.postV3WithWechatpaySerial(url, GSON.toJson(request));
     return GSON.fromJson(response, WxPayRefundV3Result.class);
@@ -270,6 +404,9 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   @Override
   public WxPayRefundV3Result partnerRefundV3(WxPayPartnerRefundV3Request request) throws WxPayException {
+    if (StringUtils.isBlank(request.getNotifyUrl())) {
+      request.setNotifyUrl(this.getConfig().getRefundNotifyUrl());
+    }
     if (StringUtils.isBlank(request.getSubMchid())) {
       request.setSubMchid(this.getConfig().getSubMchId());
     }

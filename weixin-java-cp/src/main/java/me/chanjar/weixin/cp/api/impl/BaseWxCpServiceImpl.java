@@ -75,6 +75,7 @@ public abstract class BaseWxCpServiceImpl<H, P> implements WxCpService, RequestH
   private final WxCpMeetingService meetingService = new WxCpMeetingServiceImpl(this);
   private final WxCpCorpGroupService corpGroupService = new WxCpCorpGroupServiceImpl(this);
   private final WxCpIntelligentRobotService intelligentRobotService = new WxCpIntelligentRobotServiceImpl(this);
+  private final WxCpHrService hrService = new WxCpHrServiceImpl(this);
 
   /**
    * 全局的是否正在刷新access token的锁.
@@ -299,6 +300,16 @@ public abstract class BaseWxCpServiceImpl<H, P> implements WxCpService, RequestH
   @Override
   public String postWithoutToken(String url, String postData) throws WxErrorException {
     return this.executeNormal(SimplePostRequestExecutor.create(this), url, postData);
+  }
+
+  @Override
+  public String postForMsgAudit(String url, String postData) throws WxErrorException {
+    // 获取会话存档专用的access token
+    String msgAuditAccessToken = getMsgAuditAccessToken(false);
+    // 拼接access_token参数
+    String urlWithToken = url + (url.contains("?") ? "&" : "?") + "access_token=" + msgAuditAccessToken;
+    // 使用executeNormal方法，不自动添加token
+    return this.executeNormal(SimplePostRequestExecutor.create(this), urlWithToken, postData);
   }
 
   /**
@@ -707,5 +718,10 @@ public abstract class BaseWxCpServiceImpl<H, P> implements WxCpService, RequestH
   @Override
   public WxCpIntelligentRobotService getIntelligentRobotService() {
     return this.intelligentRobotService;
+  }
+
+  @Override
+  public WxCpHrService getHrService() {
+    return this.hrService;
   }
 }
